@@ -1,8 +1,9 @@
 ALL: comp
 
-comp: main.c
-	gcc -O2 -o comp main.c
+comp: ../main.c pred.c
+	gcc -O2 -o comp ../main.c pred.c
 
 test:
 	./comp -o enwik8.p ../enwik8
 	./comp -d -o enwik8.txt enwik8.p
+	md5sum ../enwik8 enwik8.txt
