@@ -1,13 +1,17 @@
+#include <stdlib.h> // malloc
 #include <stdio.h>  // FILE
-#include <unistd.h>  // getopt
+#include <unistd.h> // getopt
 
-extern void compress(FILE *, FILE *);
-extern void decompress(FILE *, FILE *);
+#include <errno.h>
+
+#include "comp.h"
 
 int main(int argc, char **argv) {
   int opt;
   int mode = 'c';  // Compression
-  FILE *src, *dest = stdout;
+  FILE *fin, *fout = stdout;
+
+  struct codec *state;
 
   while( (opt = getopt(argc, argv, "do")) != -1) {
     switch(opt) {
@@ -15,20 +19,61 @@ int main(int argc, char **argv) {
       mode = 'd';
       break;
     case 'o':
-      dest = fopen(argv[optind++], "w");
+      fout = fopen(argv[optind++], "w");
       break;
     }
   }
 
   if (optind < argc) {
-    src = fopen(argv[optind++], "r");
+    fin = fopen(argv[optind++], "r");
   } else {
-    src = stdin;
+    fin = stdin;
   }
 
   if (mode == 'c') {
-    compress(src, dest);
+    struct buffer src;
+
+    src.size = 1 << 24;
+    src.data = malloc(1 << 24);
+
+    while(1) {
+      src.size = fread(src.data, 1, 1 << 24, fin);
+      if (src.size == 0) break;
+
+      // original size
+      fwrite(&src.size, 4, 1, fout);
+
+      struct buffer *dest = compress(&src);
+
+      // compressed size
+      fwrite(&dest->size, 4, 1, fout);
+      fwrite(dest->data, 1, dest->size, fout);
+
+      free(dest->data);
+      free(dest);
+    }
+
   } else {
-    decompress(src, dest);
+
+    struct buffer *src = malloc(sizeof(struct buffer));
+    src->data = malloc(1 << 24);
+    src->size = 0;
+
+    while(1) {
+      size_t size = 0;
+      if(fread(&size, 4, 1, fin) == 0) break;
+
+      fread(&src->size, 4, 1, fin);
+      size_t r = fread(src->data, 1, src->size, fin);
+
+    	struct buffer *dest = decompress(src, size);
+
+      fwrite(dest->data, 1, dest->size, fout);
+      free(dest->data);
+      free(dest);
+
+    }
+    free(src->data);
+    free(src);
   }
 }

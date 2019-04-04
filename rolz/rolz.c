@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "comp.h"
+
 #define FRAME_SIZE (1 << 24)
 
 #define MAX_LIT_RUN 128     // implied 1
@@ -20,8 +22,6 @@
 uint8_t table_next[HASH_SIZE];
 uint32_t table[HASH_SIZE][HASH_DEPTH];
 
-uint8_t buffer[FRAME_SIZE];
-
 size_t hash_ptr;
 
 void init_hash_table() {
@@ -34,10 +34,10 @@ unsigned int hash(uint8_t a, uint8_t b) {
     return (a << 4) ^ b;    // guaranteed 12 bits
 }
 
-void update_hash_table(size_t ptr) {
+void update_hash_table(struct buffer *src, size_t ptr) {
 
     while((hash_ptr + 2) < ptr) {
-        int key = hash(buffer[hash_ptr], buffer[hash_ptr+1]);
+        int key = hash(src->data[hash_ptr], src->data[hash_ptr+1]);
         int idx = table_next[key];
         table[key][idx] = hash_ptr + 2;
 
@@ -61,101 +61,103 @@ int find_match_length(uint8_t *buffer, size_t left, size_t right, int max_len) {
 int lit_counter = 0;
 uint8_t lit_pending[MAX_LIT_RUN];
 
-void flush_literals(FILE *fout) {
+void flush_literals(struct buffer *dest) {
     if(lit_counter > 0) {
-        fputc(lit_counter-1, fout);
-        fwrite(lit_pending, 1, lit_counter, fout);
+        dest->data[dest->size++] = lit_counter - 1;
+        memcpy(&dest->data[dest->size], lit_pending, lit_counter);
+        dest->size += lit_counter;
         lit_counter = 0;
     }
 }
 
-void emit_literal(uint8_t lit, FILE *fout) {
+void emit_literal(uint8_t lit, struct buffer *dest) {
     lit_pending[lit_counter++] = lit;
     if(lit_counter == MAX_LIT_RUN) {
-        flush_literals(fout);
+        flush_literals(dest);
     }
 }
 
-void emit_match(int idx, int len, FILE *fout) {
-    flush_literals(fout);
-    fputc(0x80 | idx, fout);
-    fputc(len-3, fout);
+void emit_match(int idx, int len, struct buffer *dest) {
+    flush_literals(dest);
+    dest->data[dest->size++] = 0x80 | idx;
+    dest->data[dest->size++] = len - 3;
 }
 
-void compress(FILE *fin, FILE *fout) {
+struct buffer* compress(struct buffer *src) {
 
-    while(1) {
-        size_t ptr = 0;
-        size_t size = fread(buffer, 1, FRAME_SIZE, fin);
-        if(size == 0) break;
+    struct buffer *dest;
+    dest = malloc(sizeof(struct buffer));
+    dest->data = malloc(1 << 24);
+    dest->size = 0;
 
-        init_hash_table();
+    size_t ptr = 0;
 
-        fwrite(&size, 4, 1, fout);
+    init_hash_table();
 
-        emit_literal(buffer[ptr++], fout);
-        emit_literal(buffer[ptr++], fout);
+    emit_literal(src->data[ptr++], dest);
+    emit_literal(src->data[ptr++], dest);
 
-        while(ptr < size) {
-            int key = hash(buffer[ptr-2], buffer[ptr-1]);
+    while(ptr < src->size) {
+        int key = hash(src->data[ptr-2], src->data[ptr-1]);
 
-            int max_find_idx = -1, max_find_len = 2;    // matches under 2 bytes aren't worth it
+        int max_find_idx = -1, max_find_len = 2;    // matches under 2 bytes aren't worth it
 
-            for(int idx = 0; idx < HASH_DEPTH; idx++) {
-                int offset = table[key][idx];
-                if(offset == UNSET) break;
+        for(int idx = 0; idx < HASH_DEPTH; idx++) {
+            int offset = table[key][idx];
+            if(offset == UNSET) break;
 
-                int len = find_match_length(buffer, offset, ptr, size - offset);
-                if (len > max_find_len) {
-                    max_find_len = len;
-                    max_find_idx = idx;
+            int len = find_match_length(src->data, offset, ptr, src->size - offset);
+            if (len > max_find_len) {
+                max_find_len = len;
+                max_find_idx = idx;
 
-                    if (len == MAX_MATCH_LEN) break;
-                }
+                if (len == MAX_MATCH_LEN) break;
             }
-            if (max_find_idx != -1) {
-                emit_match(max_find_idx, max_find_len, fout);
-                ptr += max_find_len;
-            } else {
-                emit_literal(buffer[ptr++], fout);
-            }
-            update_hash_table(ptr);
         }
-        flush_literals(fout);
+        if (max_find_idx != -1) {
+            emit_match(max_find_idx, max_find_len, dest);
+            ptr += max_find_len;
+        } else {
+            emit_literal(src->data[ptr++], dest);
+        }
+        update_hash_table(src, ptr);
     }
+    flush_literals(dest);
 
+    return dest;
 }
 
 
-void decompress(FILE *fin, FILE *fout) {
+struct buffer* decompress(struct buffer *src, size_t output_size) {
+    struct buffer *dest = malloc(sizeof(struct buffer));
 
-    while(1) {
-        size_t size, ptr;
-        ptr = fread(&size, 1, 4, fin);
-        if(ptr == 0) break;
+    dest->data = malloc(output_size);
+    dest->size = 0;
 
-        init_hash_table();
+    size_t sptr = 0;
 
-        ptr = 0;
-        while(ptr < size) {
-            int c;
-            c = fgetc(fin);
-            if(c & 0x80) { // match
-                int idx = c & 0x7f;
-                int len = fgetc(fin) + 3;
-                int key = hash(buffer[ptr-2], buffer[ptr-1]);
-                int offset = table[key][idx];
-                for(int x = 0; x < len; x++) {
-                    buffer[ptr+x] = buffer[offset+x];
-                }
-                ptr += len;
-            } else {
-                int len = c + 1;
-                fread(&buffer[ptr], 1, len, fin);
-                ptr += len;
+    init_hash_table();
+
+    while(sptr < src->size) {
+        int c;
+        c = src->data[sptr++];
+
+        if(c & 0x80) { // match
+            int idx = c & 0x7f;
+            int len = src->data[sptr++] + 3;
+            int key = hash(dest->data[dest->size - 2], dest->data[dest->size - 1]);
+            int offset = table[key][idx];
+            for(int x = 0; x < len; x++) {
+                dest->data[dest->size++] = dest->data[offset + x];
             }
-            update_hash_table(ptr);
+        } else {
+            int len = c + 1;
+            while(len--) {
+                dest->data[dest->size++] = src->data[sptr++];
+            }
         }
-        fwrite(buffer, 1, size, fout);
+        update_hash_table(dest, dest->size);
     }
+
+    return dest;
 }
