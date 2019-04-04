@@ -1,7 +1,7 @@
 ALL: comp
 
 comp: ../main.c pred.c
-	gcc -O2 -o comp ../main.c pred.c
+	gcc -I../ -O2 -o comp ../main.c pred.c
 
 test:
 	./comp -o enwik8.p ../enwik8

@@ -1,81 +1,94 @@
 #include <stdlib.h> // calloc
 #include <stdint.h> // uint8_t
 #include <stdio.h>  // FILE
+#include <string.h> // malloc
+
+#include "comp.h"
 
 #define HASH_SIZE (1<<20)
 #define HASH_MASK (HASH_SIZE-1)
 #define HASH(state, c) ((state << 4) ^ c) & HASH_MASK
 
-int compress(FILE *src, FILE *dest) {
-  int c;
-  uint32_t size = 0;
+
+struct buffer* compress(struct buffer* src) {
   uint32_t state = 0;
   uint8_t flags = 0;
-  int loop = 0;
-  int count = 0;
-  uint8_t literals[8];
+
+  int loop = 0; // flush flags + literals every 8 iterations
+  int lit_counter = 0;
+  uint8_t lit_pending[8];
 
   uint8_t *hash = calloc(HASH_SIZE, 1);
 
-  // Write file size at start!
-  fwrite(&size, sizeof(size), 1, dest);
+  size_t sptr = 0;
 
-  while( (c = fgetc(src)) != EOF ) {
-    ++size;
+  struct buffer *dest = malloc(sizeof(struct buffer));
+  dest->data = malloc(1 << 24);
+  dest->size = 0;
+
+  while(sptr < src->size) {
+
+    uint8_t c = src->data[sptr++];
 
     flags <<= 1;
 
     if(c != hash[state]) {
       flags |= 1;
-      literals[count++] = c;
+      lit_pending[lit_counter++] = c;
     }
     hash[state] = c;
     state = HASH(state, c);
 
     if(++loop == 8) {
-      fputc(flags, dest);
-      fwrite(literals, 1, count, dest);
+      dest->data[dest->size++] = flags;
+      memcpy(&dest->data[dest->size], lit_pending, lit_counter);
+      dest->size += lit_counter;
 
       loop = 0;
-      count = 0;
+      lit_counter = 0;
       flags = 0;
     }
   }
   if(loop) {
-    fputc(flags, dest);
-    fwrite(literals, 1, count, dest);
+    dest->data[dest->size++] = flags;
+    memcpy(&dest->data[dest->size], lit_pending, lit_counter);
+    dest->size += lit_counter;
   }
 
-  fseek(dest, 0, SEEK_SET);
-  fwrite(&size, sizeof(size), 1, dest);
+  return dest;
 }
 
 
-int decompress(FILE *src, FILE *dest) {
+struct buffer* decompress(struct buffer *src, size_t output_size) {
   uint8_t c;
   uint32_t state = 0;
-  uint32_t size;
+  size_t sptr = 0;
+
   int flags;
   int count;
 
+  struct buffer *dest = malloc(sizeof(struct buffer));
+  dest->data = malloc(output_size);
+  dest->size = 0;
+
   uint8_t *hash = calloc(HASH_SIZE, 1);
 
-  fread(&size, sizeof(size), 1, src);
+  while(dest->size < output_size) {
+    flags = src->data[sptr++];
 
-  while(size) {
-    flags = fgetc(src);
     for(count=0; count < 8; count++) {
       if(flags & 0x80) {
-        c = fgetc(src);
+        c = src->data[sptr++];
       } else {
         c = hash[state];
       }
-      fputc(c, dest);
-      --size;
+      dest->data[dest->size++] = c;
 
       hash[state] = c;
       state = HASH(state, c);
       flags <<= 1;
     }
   }
+
+  return dest;
 }
