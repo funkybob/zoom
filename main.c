@@ -11,8 +11,6 @@ int main(int argc, char **argv) {
   int mode = 'c';  // Compression
   FILE *fin, *fout = stdout;
 
-  struct codec *state;
-
   while( (opt = getopt(argc, argv, "do")) != -1) {
     switch(opt) {
     case 'd':
@@ -64,9 +62,9 @@ int main(int argc, char **argv) {
       if(fread(&size, 4, 1, fin) == 0) break;
 
       fread(&src->size, 4, 1, fin);
-      size_t r = fread(src->data, 1, src->size, fin);
+      fread(src->data, 1, src->size, fin);
 
-    	struct buffer *dest = decompress(src, size);
+      struct buffer *dest = decompress(src, size);
 
       fwrite(dest->data, 1, dest->size, fout);
       free(dest->data);

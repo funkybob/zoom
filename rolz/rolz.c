@@ -52,7 +52,7 @@ static inline void update_hash_table(struct buffer *src, size_t ptr) {
 static inline int find_match_length(uint8_t *buffer, size_t left, size_t right, int max_len) {
     int len = 0;
 
-    uint32_t c;
+    uint32_t c = 0;
 
     uint32_t *l = (uint32_t*)&buffer[left];
     uint32_t *r = (uint32_t*)&buffer[right];
@@ -114,7 +114,7 @@ struct buffer* compress(struct buffer *src) {
         int max_find_idx = -1, max_find_len = 2;    // matches under 2 bytes aren't worth it
 
         for(int idx = 0; idx < HASH_DEPTH; idx++) {
-            int offset = table[key][idx];
+            uint32_t offset = table[key][idx];
             if(offset == UNSET) break;
 
             int len = find_match_length(src->data, offset, ptr, src->size - offset);
