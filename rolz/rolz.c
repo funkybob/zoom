@@ -24,17 +24,17 @@ uint32_t table[HASH_SIZE][HASH_DEPTH];
 
 size_t hash_ptr;
 
-void init_hash_table() {
+static inline void init_hash_table() {
     memset(table_next, 0, sizeof(table_next));
     memset(table, -1, sizeof(table));
     hash_ptr = 0;
 }
 
-unsigned int hash(uint8_t a, uint8_t b) {
+static inline unsigned int hash(uint8_t a, uint8_t b) {
     return (a << 4) ^ b;    // guaranteed 12 bits
 }
 
-void update_hash_table(struct buffer *src, size_t ptr) {
+static inline void update_hash_table(struct buffer *src, size_t ptr) {
 
     while((hash_ptr + 2) < ptr) {
         int key = hash(src->data[hash_ptr], src->data[hash_ptr+1]);
@@ -49,19 +49,31 @@ void update_hash_table(struct buffer *src, size_t ptr) {
 
 }
 
-int find_match_length(uint8_t *buffer, size_t left, size_t right, int max_len) {
+static inline int find_match_length(uint8_t *buffer, size_t left, size_t right, int max_len) {
     int len = 0;
-    while(len < max_len && len < MAX_MATCH_LEN) {
-        if (buffer[left + len] != buffer[right + len]) break;
-        len += 1;
+
+    uint32_t c;
+
+    uint32_t *l = (uint32_t*)&buffer[left];
+    uint32_t *r = (uint32_t*)&buffer[right];
+
+    max_len = (max_len > MAX_MATCH_LEN) ? MAX_MATCH_LEN : max_len;
+
+    while(len < max_len && (c = *l++ ^ *r++) == 0) {
+        len += 4;
     }
-    return len;
+
+    if(c != 0) {
+        len += __builtin_ctz(c) >> 3;   // LITTLE ENDIAN!
+    }
+
+    return (len > max_len) ? max_len : len;
 }
 
 int lit_counter = 0;
 uint8_t lit_pending[MAX_LIT_RUN];
 
-void flush_literals(struct buffer *dest) {
+static inline void flush_literals(struct buffer *dest) {
     if(lit_counter > 0) {
         dest->data[dest->size++] = lit_counter - 1;
         memcpy(&dest->data[dest->size], lit_pending, lit_counter);
@@ -70,14 +82,14 @@ void flush_literals(struct buffer *dest) {
     }
 }
 
-void emit_literal(uint8_t lit, struct buffer *dest) {
+static inline void emit_literal(uint8_t lit, struct buffer *dest) {
     lit_pending[lit_counter++] = lit;
     if(lit_counter == MAX_LIT_RUN) {
         flush_literals(dest);
     }
 }
 
-void emit_match(int idx, int len, struct buffer *dest) {
+static inline void emit_match(int idx, int len, struct buffer *dest) {
     flush_literals(dest);
     dest->data[dest->size++] = 0x80 | idx;
     dest->data[dest->size++] = len - 3;
@@ -85,8 +97,7 @@ void emit_match(int idx, int len, struct buffer *dest) {
 
 struct buffer* compress(struct buffer *src) {
 
-    struct buffer *dest;
-    dest = malloc(sizeof(struct buffer));
+    struct buffer *dest = malloc(sizeof(struct buffer));
     dest->data = malloc(1 << 24);
     dest->size = 0;
 
@@ -129,8 +140,8 @@ struct buffer* compress(struct buffer *src) {
 
 
 struct buffer* decompress(struct buffer *src, size_t output_size) {
-    struct buffer *dest = malloc(sizeof(struct buffer));
 
+    struct buffer *dest = malloc(sizeof(struct buffer));
     dest->data = malloc(output_size);
     dest->size = 0;
 
