@@ -8,7 +8,7 @@ struct buffer {
 	uint8_t *data;
 };
 
-extern struct buffer* compress(struct buffer *src);
-extern struct buffer* decompress(struct buffer *src, size_t size);
+size_t compress(struct buffer *src, struct buffer *dest);
+size_t decompress(struct buffer *src, struct buffer *dest, size_t size);
 
 #endif

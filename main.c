@@ -28,34 +28,33 @@ int main(int argc, char **argv) {
     fin = stdin;
   }
 
-  if (mode == 'c') {
-    struct buffer src;
 
-    src.size = 1 << 24;
-    src.data = malloc(1 << 24);
+  struct buffer *src = malloc(sizeof(struct buffer));
+  src->data = malloc(1 << 24);
+  src->size = 0;
+
+  struct buffer * dest = malloc(sizeof(struct buffer));
+  dest->data = malloc(1 << 24);
+  dest->size = 0;
+
+
+  if (mode == 'c') {
 
     while(1) {
-      src.size = fread(src.data, 1, 1 << 24, fin);
-      if (src.size == 0) break;
+      src->size = fread(src->data, 1, 1 << 24, fin);
+      if (src->size == 0) break;
 
       // original size
-      fwrite(&src.size, 4, 1, fout);
+      fwrite(&src->size, 4, 1, fout);
 
-      struct buffer *dest = compress(&src);
+      size_t dsize = compress(src, dest);
 
       // compressed size
-      fwrite(&dest->size, 4, 1, fout);
-      fwrite(dest->data, 1, dest->size, fout);
-
-      free(dest->data);
-      free(dest);
+      fwrite(&dsize, 4, 1, fout);
+      fwrite(dest->data, 1, dsize, fout);
     }
 
   } else {
-
-    struct buffer *src = malloc(sizeof(struct buffer));
-    src->data = malloc(1 << 24);
-    src->size = 0;
 
     while(1) {
       size_t size = 0;
@@ -64,14 +63,14 @@ int main(int argc, char **argv) {
       fread(&src->size, 4, 1, fin);
       fread(src->data, 1, src->size, fin);
 
-      struct buffer *dest = decompress(src, size);
+      size_t dsize = decompress(src, dest, size);
 
-      fwrite(dest->data, 1, dest->size, fout);
-      free(dest->data);
-      free(dest);
-
+      fwrite(dest->data, 1, dsize, fout);
     }
-    free(src->data);
-    free(src);
   }
+
+  free(src->data);
+  free(src);
+  free(dest->data);
+  free(dest);
 }
