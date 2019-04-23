@@ -1,4 +1,5 @@
 // Reduced Offset LZ
+#include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -6,10 +7,9 @@
 
 #include "comp.h"
 
-#define FRAME_SIZE (1 << 24)
-
 #define MAX_LIT_RUN 128     // implied 1
-#define MAX_MATCH_LEN (255 + 3) // run of 0 == 3, run of 255 == 258
+#define MIN_MATCH_LEN 3
+#define MAX_MATCH_LEN (255 + MIN_MATCH_LEN) // run of 0 == 3, run of 255 == 258
 
 #define HASH_BITS 12
 #define HASH_SIZE (1 << HASH_BITS)
@@ -52,19 +52,19 @@ static inline void update_hash_table(struct buffer *src, size_t ptr) {
 static inline int find_match_length(uint8_t *buffer, size_t left, size_t right, int max_len) {
     int len = 0;
 
-    uint32_t c = 0;
+    uint64_t c = 0;
 
-    uint32_t *l = (uint32_t*)&buffer[left];
-    uint32_t *r = (uint32_t*)&buffer[right];
+    uint64_t *l = (uint64_t*)&buffer[left];
+    uint64_t *r = (uint64_t*)&buffer[right];
 
     max_len = (max_len > MAX_MATCH_LEN) ? MAX_MATCH_LEN : max_len;
 
     while(len < max_len && (c = *l++ ^ *r++) == 0) {
-        len += 4;
+        len += 8;
     }
 
     if(c != 0) {
-        len += __builtin_ctz(c) >> 3;   // LITTLE ENDIAN!
+        len += __builtin_ctzl(c) >> 3;   // LITTLE ENDIAN!
     }
 
     return (len > max_len) ? max_len : len;
@@ -92,13 +92,11 @@ static inline void emit_literal(uint8_t lit, struct buffer *dest) {
 static inline void emit_match(int idx, int len, struct buffer *dest) {
     flush_literals(dest);
     dest->data[dest->size++] = 0x80 | idx;
-    dest->data[dest->size++] = len - 3;
+    dest->data[dest->size++] = len - MIN_MATCH_LEN;
 }
 
-struct buffer* compress(struct buffer *src) {
+size_t compress(struct buffer *src, struct buffer *dest) {
 
-    struct buffer *dest = malloc(sizeof(struct buffer));
-    dest->data = malloc(1 << 24);
     dest->size = 0;
 
     size_t ptr = 0;
@@ -111,7 +109,7 @@ struct buffer* compress(struct buffer *src) {
     while(ptr < src->size) {
         int key = hash(src->data[ptr-2], src->data[ptr-1]);
 
-        int max_find_idx = -1, max_find_len = 2;    // matches under 2 bytes aren't worth it
+        int max_find_idx = -1, max_find_len = MIN_MATCH_LEN - 1;
 
         for(int idx = 0; idx < HASH_DEPTH; idx++) {
             uint32_t offset = table[key][idx];
@@ -135,14 +133,12 @@ struct buffer* compress(struct buffer *src) {
     }
     flush_literals(dest);
 
-    return dest;
+    return dest->size;
 }
 
 
-struct buffer* decompress(struct buffer *src, size_t output_size) {
+size_t decompress(struct buffer *src, struct buffer *dest, size_t output_size) {
 
-    struct buffer *dest = malloc(sizeof(struct buffer));
-    dest->data = malloc(output_size);
     dest->size = 0;
 
     size_t sptr = 0;
@@ -155,7 +151,7 @@ struct buffer* decompress(struct buffer *src, size_t output_size) {
 
         if(c & 0x80) { // match
             int idx = c & 0x7f;
-            int len = src->data[sptr++] + 3;
+            int len = src->data[sptr++] + MIN_MATCH_LEN;
             int key = hash(dest->data[dest->size - 2], dest->data[dest->size - 1]);
             int offset = table[key][idx];
             for(int x = 0; x < len; x++) {
@@ -170,5 +166,6 @@ struct buffer* decompress(struct buffer *src, size_t output_size) {
         update_hash_table(dest, dest->size);
     }
 
-    return dest;
+    assert(dest->size == output_size);
+    return dest->size;
 }
