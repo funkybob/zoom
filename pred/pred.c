@@ -10,7 +10,7 @@
 #define HASH(state, c) ((state << 4) ^ c) & HASH_MASK
 
 
-struct buffer* compress(struct buffer* src) {
+size_t compress(struct buffer* src, struct buffer* dest) {
   uint32_t state = 0;
   uint8_t flags = 0;
 
@@ -22,8 +22,6 @@ struct buffer* compress(struct buffer* src) {
 
   size_t sptr = 0;
 
-  struct buffer *dest = malloc(sizeof(struct buffer));
-  dest->data = malloc(1 << 24);
   dest->size = 0;
 
   while(sptr < src->size) {
@@ -55,11 +53,11 @@ struct buffer* compress(struct buffer* src) {
     dest->size += lit_counter;
   }
 
-  return dest;
+  return dest->size;
 }
 
 
-struct buffer* decompress(struct buffer *src, size_t output_size) {
+size_t decompress(struct buffer *src, struct buffer *dest, size_t output_size) {
   uint8_t c;
   uint32_t state = 0;
   size_t sptr = 0;
@@ -67,8 +65,6 @@ struct buffer* decompress(struct buffer *src, size_t output_size) {
   int flags;
   int count;
 
-  struct buffer *dest = malloc(sizeof(struct buffer));
-  dest->data = malloc(output_size);
   dest->size = 0;
 
   uint8_t *hash = calloc(HASH_SIZE, 1);
@@ -90,5 +86,5 @@ struct buffer* decompress(struct buffer *src, size_t output_size) {
     }
   }
 
-  return dest;
+  return dest->size;
 }
