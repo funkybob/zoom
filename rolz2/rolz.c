@@ -9,13 +9,13 @@
 
 #define MAX_LIT_RUN 128     // implied 1
 #define MIN_MATCH_LEN 2
-#define MAX_MATCH_LEN (255 + 3 + MIN_MATCH_LEN)
+#define MAX_MATCH_LEN (255 + 7 + MIN_MATCH_LEN)
 
 #define HASH_BITS 16
 #define HASH_SIZE (1 << HASH_BITS)
 #define HASH_MASK (HASH_SIZE - 1)
 
-#define HASH_DEPTH 32
+#define HASH_DEPTH 16
 
 #define UNSET 0xffffffff
 
@@ -34,9 +34,9 @@ static inline void init_hash_table() {
 }
 
 static inline uint32_t hash(uint8_t a, uint8_t b, uint8_t c) {
-    // Primes chosen for having bits in high and low bytes
-    return (a * 6151 ^ b * 3079 ^ c * 1543) & HASH_MASK;
-    // return (a << 8) ^ (b << 4) ^ c;
+    uint32_t acc = (a<<16) | (b<<8) | c;
+    acc = __builtin_ia32_crc32si(0, acc);
+    return acc & HASH_MASK;
 }
 
 static inline void update_hash_table(struct buffer *src, size_t ptr) {
@@ -93,15 +93,15 @@ static inline void emit_literal(uint8_t lit, struct buffer *dest) {
 static inline void emit_match(int idx, int len, struct buffer *dest) {
     flush_literals(dest);
     len -= MIN_MATCH_LEN;
-    if ( len < 3 ) {
-        dest->data[dest->size++] = 0x80 | (len << 5) | idx;
+    if ( len < 7 ) {
+        dest->data[dest->size++] = 0x80 | (len << 4) | idx;
     } else {
-        dest->data[dest->size++] = 0xe0 | idx;
-        dest->data[dest->size++] = len - 3;
+        dest->data[dest->size++] = 0xf0 | idx;
+        dest->data[dest->size++] = len - 7;
     }
 }
 
-void find_match(struct match *m, struct buffer *src, size_t ptr) {
+static inline void find_match(struct match *m, struct buffer *src, size_t ptr) {
     uint32_t key = hash(src->data[ptr-3], src->data[ptr-2], src->data[ptr-1]);
 
     m->idx = -1;
@@ -139,26 +139,30 @@ size_t compress(struct buffer *src, struct buffer *dest) {
     emit_literal(src->data[ptr++], dest);
 
     while(ptr < src->size) {
-        struct match here, next;
+        struct match here;
+        size_t here_len;
 
         find_match(&here, src, ptr);
 
-        if (here.idx != -1) {
-            size_t here_len, next_len;
+        here_len = encoding_size(&here);
 
-            here_len = encoding_size(&here);
+        if (here.idx != -1 && here.len > here_len) {
+            struct match next;
 
             ptr += 1;
             update_hash_table(src, ptr);
             find_match(&next, src, ptr);
 
-            next_len = encoding_size(&next);
-            if(lit_counter == 0) here_len += 1;
+            size_t next_len = encoding_size(&next);
 
-            if (next.idx != -1 && next_len > here_len) {
+            // emitting a literal now will incurr a literal block cost.
+            if(lit_counter == 0) next_len += 1;
+
+            if (
+                next.idx != -1 &&
+                (next.len - next_len) > (here.len - here_len)
+            ) {
                 emit_literal(src->data[ptr-1], dest);
-                // emit_match(next.idx, next.len, dest);
-                // ptr += next.len;
             } else {
                 emit_match(here.idx, here.len, dest);
                 ptr += here.len - 1;
@@ -190,9 +194,9 @@ size_t decompress(struct buffer *src, struct buffer *dest, size_t output_size) {
         c = src->data[sptr++];
 
         if(c & 0x80) { // match
-            int idx = c & 0x1f;
-            int len = (c >> 5) & 0x03;
-            if(len == 3) {
+            int idx = c & 0x0f;
+            int len = (c >> 4) & 0x07;
+            if(len == 7) {
                 len += src->data[sptr++];
             }
             len += MIN_MATCH_LEN;
