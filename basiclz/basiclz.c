@@ -33,7 +33,11 @@ static inline void init_hash_table() {
 }
 
 static inline uint32_t hash(uint8_t a, uint8_t b, uint8_t c) {
-    return (a << 8) ^ (b << 4) ^ c;
+    uint32_t acc;
+    acc = __builtin_ia32_crc32qi(0, a);
+    acc = __builtin_ia32_crc32qi(acc, b);
+    acc = __builtin_ia32_crc32qi(acc, c);
+    return acc & HASH_MASK;
 }
 
 static inline void update_hash_table(struct buffer *src, size_t ptr) {
@@ -74,8 +78,9 @@ uint8_t lit_pending[MAX_LIT_RUN];
 static inline void flush_literals(struct buffer *dest) {
     if(lit_counter > 0) {
         dest->data[dest->size++] = lit_counter - 1;
-        memcpy(&dest->data[dest->size], lit_pending, lit_counter);
-        dest->size += lit_counter;
+        uint8_t *p = lit_pending;
+        while(lit_counter--)
+            dest->data[dest->size++] = *p++;
         lit_counter = 0;
     }
 }
@@ -112,7 +117,7 @@ static inline void emit_match(size_t offset, int len, struct buffer *dest) {
     }
 }
 
-void find_match(struct match *m, struct buffer *src, size_t ptr) {
+static inline void find_match(struct match *m, struct buffer *src, size_t ptr) {
     uint32_t key = hash(src->data[ptr], src->data[ptr+1], src->data[ptr+2]);
 
     m->offset = 0;
@@ -170,8 +175,12 @@ size_t compress(struct buffer *src, struct buffer *dest) {
 
             size_t next_len = encoding_size(&next);
 
+            // emitting a literal now will incurr a literal block cost.
+            if(lit_counter == 0) next_len += 1;
+
             if (
-                (next.len > next_len) && ((next.len - next_len) > (here.len - here_len))
+                (next.len > next_len) &&
+                ((next.len - next_len) > (here.len - here_len))
             ) {
                 emit_literal(src->data[ptr-1], dest);
             } else {
