@@ -15,7 +15,7 @@
 #define HASH_SIZE (1 << HASH_BITS)
 #define HASH_MASK (HASH_SIZE - 1)
 
-#define HASH_DEPTH 64
+#define HASH_DEPTH 128
 
 #define UNSET 0xffffffff
 
@@ -25,6 +25,7 @@ uint32_t hash_ptr;
 struct match {
     size_t offset;
     size_t len;
+    size_t cost;
 };
 
 static inline void init_hash_table() {
@@ -115,34 +116,43 @@ static inline void emit_match(size_t offset, int len, struct buffer *dest) {
     }
 }
 
+static inline size_t encoding_size(size_t len, size_t offset) {
+    size_t l = 1;
+    if(len > (126 + MIN_MATCH_LEN)) l += 1;
+
+    l += 2;
+    if(offset >= 0x8000) l += 1;
+
+    return l;
+}
+
 static inline void find_match(struct match *m, struct buffer *src, size_t ptr) {
     uint32_t key = hash(src->data[ptr], src->data[ptr+1], src->data[ptr+2]);
 
+    size_t best_saving = 0;
+
     m->offset = 0;
     m->len = 0;
+    m->cost = 0;
 
-    for(int idx = 0; idx < HASH_DEPTH; idx++) {
+    for (int idx = 0; idx < HASH_DEPTH; idx++) {
         uint32_t offset = table[key][idx];
         if(offset == UNSET) break;
 
         size_t len = find_match_length(src->data, offset, ptr, src->size - offset);
-        if (len > m->len) {
-            m->len = len;
-            m->offset = ptr - offset;
 
-            if (len == MAX_MATCH_LEN) break;
+        if (len >= MIN_MATCH_LEN) {
+            size_t cost = encoding_size(len, ptr - offset);
+            if ((len - cost) > best_saving) {
+                best_saving = len - cost;
+                m->len = len;
+                m->offset = ptr - offset;
+                m->cost = cost;
+
+                if (len == MAX_MATCH_LEN) break;
+            }
         }
     }
-}
-
-static inline size_t encoding_size(struct match *m) {
-    size_t l = 1;
-    if(m->len > (126 + MIN_MATCH_LEN)) l += 1;
-
-    l += 2;
-    if(m->offset >= 0x8000) l += 1;
-
-    return l;
 }
 
 size_t compress(struct buffer *src, struct buffer *dest) {
@@ -166,26 +176,24 @@ size_t compress(struct buffer *src, struct buffer *dest) {
         } else {
             here.len = next.len;
             here.offset = next.offset;
+            here.cost = next.cost;
         }
 
-        size_t here_cost = encoding_size(&here);
 
-        if (here.len > here_cost) {
+        if (here.len > here.cost) {
 
             ptr += 1;
             update_hash_table(src, ptr);
             find_match(&next, src, ptr);
 
-            size_t next_cost = encoding_size(&next);
-
             // will emitting a literal now incurr a literal block cost?
-            if(lit_counter == 0) next_cost += 1;
+            size_t lit_bias = (lit_counter == 0) ? 1 : 0;
 
             if (
                 // is it a match?
-                (next.len > next_cost) &&
+                (next.len > next.cost) &&
                 // will it result in a better yield?
-                ((next.len - next_cost) > (here.len - here_cost))
+                ((next.len - (next.cost + lit_bias)) > (here.len - here.cost))
             ) {
                 emit_literal(src->data[ptr-1], dest);
             } else {

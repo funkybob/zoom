@@ -18,14 +18,14 @@ enwik9 | 374,086,002 | ~1m31sec
 HASH_DEPTH = 64:
 
 File   | Compressed  | Time
-enwik8 |  43,305,931 | ~29.8sec
-enwik9 | 377,883,432 | ~4m22sec
+enwik8 |  42,914,828 | ~38.8sec
+enwik9 | 374,719,846 | ~5m42sec
 
 HASH_DEPTH = 128:
 
 File   | Compressed  | Time
-enwik8 |  41,975,759 | ~49.8sec
-enwik9 | 366,172,250 | ~8m55sec
+enwik8 |  41,486,119 | ~1m9sec
+enwik9 | 362,226,644 | ~10m7sec
 
 Observations and future improvements:
 
@@ -35,3 +35,5 @@ Observations and future improvements:
 On enwik8, at HASH_DEPTH = 64 reusing the lazy lookahead matches saved ~100,000 calls to find_match per 8MB block.
 However, that still left ~2.1million.
 At HASH_DEPTH = 128 it has a more significant impact, reducing enwik8 from >60sec to ~49sec, and enwik9 from ~9m16sec to ~8m55sec.
+
+By moving the encoding cost considerations into the match finding loop we improve compression noticeably, at the cost of performance.
