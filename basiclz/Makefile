@@ -7,3 +7,4 @@ test:
 	./comp -o enwik8.p ../enwik8
 	./comp -d -o enwik8.txt enwik8.p
 	md5sum ../enwik8 enwik8.txt
+	ls -l enwik8.p

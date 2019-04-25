@@ -156,15 +156,21 @@ size_t compress(struct buffer *src, struct buffer *dest) {
     emit_literal(src->data[ptr++], dest);
     emit_literal(src->data[ptr++], dest);
 
-    while(ptr < src->size) {
-        struct match here;
+    struct match here, next;
 
-        find_match(&here, src, ptr);
+    next.len = MAX_MATCH_LEN + 1;
+
+    while(ptr < src->size) {
+        if ( next.len == MAX_MATCH_LEN + 1) {
+            find_match(&here, src, ptr);
+        } else {
+            here.len = next.len;
+            here.offset = next.offset;
+        }
 
         size_t here_cost = encoding_size(&here);
 
         if (here.len > here_cost) {
-            struct match next;
 
             ptr += 1;
             update_hash_table(src, ptr);
@@ -176,16 +182,20 @@ size_t compress(struct buffer *src, struct buffer *dest) {
             if(lit_counter == 0) next_cost += 1;
 
             if (
+                // is it a match?
                 (next.len > next_cost) &&
+                // will it result in a better yield?
                 ((next.len - next_cost) > (here.len - here_cost))
             ) {
                 emit_literal(src->data[ptr-1], dest);
             } else {
                 emit_match(here.offset, here.len, dest);
                 ptr += here.len - 1;
+                next.len = MAX_MATCH_LEN + 1;
             }
         } else {
             emit_literal(src->data[ptr++], dest);
+            next.len = MAX_MATCH_LEN + 1;
         }
         update_hash_table(src, ptr);
     }
