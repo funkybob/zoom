@@ -50,3 +50,12 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+.vscode
+comp
+
+# Testing files
+enwik8*
+enwik9*
+*.log
+silesia
