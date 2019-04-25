@@ -15,7 +15,7 @@
 #define HASH_SIZE (1 << HASH_BITS)
 #define HASH_MASK (HASH_SIZE - 1)
 
-#define HASH_DEPTH 128
+#define HASH_DEPTH 64
 
 #define UNSET 0xffffffff
 
@@ -48,27 +48,6 @@ static inline void update_hash_table(struct buffer *src, size_t ptr) {
         hash_ptr += 1;
     }
 
-}
-
-static inline size_t find_match_length(uint8_t *buffer, size_t left, size_t right, size_t max_len) {
-    size_t len = 0;
-
-    uint64_t c = 0;
-
-    uint64_t *l = (uint64_t*)&buffer[left];
-    uint64_t *r = (uint64_t*)&buffer[right];
-
-    max_len = (max_len > MAX_MATCH_LEN) ? MAX_MATCH_LEN : max_len;
-
-    while(len < max_len && (c = *l++ ^ *r++) == 0) {
-        len += 8;
-    }
-
-    if(c != 0) {
-        len += __builtin_ctzl(c) >> 3;   // LITTLE ENDIAN!
-    }
-
-    return (len > max_len) ? max_len : len;
 }
 
 int lit_counter = 0;
@@ -126,6 +105,27 @@ static inline size_t encoding_size(size_t len, size_t offset) {
     return l;
 }
 
+static inline size_t find_match_length(uint8_t *buffer, size_t left, size_t right, size_t max_len) {
+    size_t len = 0;
+
+    uint64_t c = 0;
+
+    uint64_t *l = (uint64_t*)&buffer[left];
+    uint64_t *r = (uint64_t*)&buffer[right];
+
+    max_len = (max_len > MAX_MATCH_LEN) ? MAX_MATCH_LEN : max_len;
+
+    while(len < max_len && (c = *l++ ^ *r++) == 0) {
+        len += 8;
+    }
+
+    if(c != 0) {
+        len += __builtin_ctzl(c) >> 3;   // LITTLE ENDIAN!
+    }
+
+    return (len > max_len) ? max_len : len;
+}
+
 static inline void find_match(struct match *m, struct buffer *src, size_t ptr) {
     uint32_t key = hash(src->data[ptr], src->data[ptr+1], src->data[ptr+2]);
 
@@ -178,7 +178,6 @@ size_t compress(struct buffer *src, struct buffer *dest) {
             here.offset = next.offset;
             here.cost = next.cost;
         }
-
 
         if (here.len > here.cost) {
 
