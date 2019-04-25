@@ -8,7 +8,7 @@
 #include "comp.h"
 
 #define MAX_LIT_RUN 128     // implied 1
-#define MIN_MATCH_LEN 3
+#define MIN_MATCH_LEN 4     // minimum match encoding is L + 2O
 #define MAX_MATCH_LEN (255 + 127 + MIN_MATCH_LEN)
 
 #define HASH_BITS 16
@@ -218,10 +218,10 @@ size_t decompress(struct buffer *src, struct buffer *dest, size_t output_size) {
             if(c & 0x80) {
                 offset = (offset << 8) | src->data[sptr++];
             }
+
             offset = dest->size - offset;
-            for(int x = 0; x < len; x++) {
-                dest->data[dest->size++] = dest->data[offset + x];
-            }
+            while(len--)
+                dest->data[dest->size++] = dest->data[offset++];
         } else {
             int len = c + 1;
             while(len--) {
