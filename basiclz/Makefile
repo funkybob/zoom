@@ -1,8 +1,7 @@
 ALL: comp
 
 comp: ../main.c basiclz.c
-	gcc -Wall -Wextra -Werror -pedantic -I../ -Ofast -march=native -o comp ../main.c basiclz.c
-	# gcc -g -Wall -Wextra -Werror -pedantic -I../ -march=native -o comp ../main.c basiclz.c
+	gcc -Wall -Wextra -Werror -pedantic -I../ -Ofast -march=native -mcrc32 -o comp ../main.c basiclz.c
 
 test:
 	./comp -o enwik8.p ../enwik8
