@@ -33,10 +33,8 @@ static inline void init_hash_table() {
 }
 
 static inline uint32_t hash(uint8_t a, uint8_t b, uint8_t c) {
-    uint32_t acc;
-    acc = __builtin_ia32_crc32qi(0, a);
-    acc = __builtin_ia32_crc32qi(acc, b);
-    acc = __builtin_ia32_crc32qi(acc, c);
+    uint32_t acc = (a<<16) | (b<<8) | c;
+    acc = __builtin_ia32_crc32si(0, acc);
     return acc & HASH_MASK;
 }
 
@@ -160,36 +158,32 @@ size_t compress(struct buffer *src, struct buffer *dest) {
 
     while(ptr < src->size) {
         struct match here;
-        size_t here_len;
 
         find_match(&here, src, ptr);
 
-        here_len = encoding_size(&here);
+        size_t here_cost = encoding_size(&here);
 
-        if (here.len > here_len) {
+        if (here.len > here_cost) {
             struct match next;
 
             ptr += 1;
             update_hash_table(src, ptr);
             find_match(&next, src, ptr);
 
-            size_t next_len = encoding_size(&next);
+            size_t next_cost = encoding_size(&next);
 
-            // emitting a literal now will incurr a literal block cost.
-            if(lit_counter == 0) next_len += 1;
+            // will emitting a literal now incurr a literal block cost?
+            if(lit_counter == 0) next_cost += 1;
 
             if (
-                (next.len > next_len) &&
-                ((next.len - next_len) > (here.len - here_len))
+                (next.len > next_cost) &&
+                ((next.len - next_cost) > (here.len - here_cost))
             ) {
                 emit_literal(src->data[ptr-1], dest);
             } else {
                 emit_match(here.offset, here.len, dest);
                 ptr += here.len - 1;
             }
-
-            // emit_match(here.offset, here.len, dest);
-            // ptr += here.len;
         } else {
             emit_literal(src->data[ptr++], dest);
         }
@@ -222,7 +216,6 @@ size_t decompress(struct buffer *src, struct buffer *dest, size_t output_size) {
             size_t offset = c & 0x7f;
             offset = (offset << 8) | src->data[sptr++];
             if(c & 0x80) {
-                // offset = (offset << 8) | src->data[sptr++];
                 offset = (offset << 8) | src->data[sptr++];
             }
             offset = dest->size - offset;
