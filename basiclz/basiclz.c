@@ -245,7 +245,6 @@ size_t decompress(struct buffer *src, struct buffer *dest, size_t output_size) {
                 dest->data[dest->size++] = src->data[sptr++];
             }
         }
-        update_hash_table(dest, dest->size);
     }
 
     assert(dest->size == output_size);
