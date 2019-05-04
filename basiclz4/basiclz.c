@@ -213,8 +213,8 @@ uint32_t decompress(struct buffer *src, struct buffer *dest, uint32_t output_siz
             unsigned int len = c & 0x7f;
             len += MIN_MATCH_LEN;
 
-            uint16_t offset = src->data[sptr++];
-            offset |= src->data[sptr++] << 8;
+            uint16_t offset = *(uint16_t *)&src->data[sptr];
+            sptr += 2;
 
             uint32_t position = dest->size - offset;
 
