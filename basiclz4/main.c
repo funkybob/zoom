@@ -18,13 +18,13 @@ int main(int argc, char **argv) {
       mode = 'd';
       break;
     case 'o':
-      fout = fopen(argv[optind++], "w");
+      fout = fopen(argv[optind++], "wb");
       break;
     }
   }
 
   if (optind < argc) {
-    fin = fopen(argv[optind++], "r");
+    fin = fopen(argv[optind++], "rb");
   } else {
     fin = stdin;
   }
