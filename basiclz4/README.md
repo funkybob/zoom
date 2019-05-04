@@ -2,6 +2,10 @@
 1. fixed encoding size
 2. max match len MML + 0x7f
 
+"Greedy" parser takes longest match it can find.
+
+"Lazy" parser will check if matching on the next byte would be better. If it is, it starts over, emitting the current byte as a literal. This is unbounded in how many skips it may result in, so it's possible a short match will be passed over in the literals entirely, on the way to the winning longer match.
+
 ```
 Reference: lz4 -BD -9k
 File   | Compressed  | Time
@@ -51,20 +55,31 @@ enwik8 |  45,966,409 | ~14.1sec
 enwik9 | 406,685,070 | ~1m53sec
 ```
 
+Silesia corups
 
 ```
-| comp     | lz4      | raw      |
-+----------+----------+----------+---------
-|  4780108 |  4432858 | 10192446 | dickens
-| 24273638 | 22078922 | 51220480 | mozilla
-|  4612719 |  4245256 |  9970564 | mr
-|  3688949 |  3673865 | 33553445 | nci
-|  3983287 |  3543791 |  6152192 | ooffice
-|  4016048 |  3977550 | 10085684 | osdb
-|  2256776 |  2111124 |  6627202 | reymont
-|  6426585 |  6139569 | 21606400 | samba
-|  5927378 |  5735283 |  7251944 | sao
-| 14893424 | 14001560 | 41458703 | webster
-|  7612899 |  7175041 |  8474240 | x-ray
-|   806414 |   770079 |  5345280 | xml
+| greedy   | lazy     | lz4      | raw      |
++----------+----------+----------+----------+---------
+|  4825466 |  4780108 |  4432858 | 10192446 | dickens
+| 24819672 | 24273638 | 22078922 | 51220480 | mozilla
+|  4639408 |  4612719 |  4245256 |  9970564 | mr
+|  3779120 |  3688949 |  3673865 | 33553445 | nci
+|  4076538 |  3983287 |  3543791 |  6152192 | ooffice
+|  4177378 |  4016048 |  3977550 | 10085684 | osdb
+|  2273417 |  2256776 |  2111124 |  6627202 | reymont
+|  6479731 |  6426585 |  6139569 | 21606400 | samba
+|  6053921 |  5927378 |  5735283 |  7251944 | sao
+| 15116442 | 14893424 | 14001560 | 41458703 | webster
+|  7633109 |  7612899 |  7175041 |  8474240 | x-ray
+|   823673 |   806414 |   770079 |  5345280 | xml
 ```
+
+From some analysis, it appears two big advantages in LZ4 are:
+
+1. the lack of explicit match/literal flags.
+
+   instead, encoding assumes it will always be (literal run, match) and wears a small penalty (4bits) when it's wrong.
+
+2. more efficient encoding of short runs
+
+   by allowing literal run and match length encoding to use only 4bits for runs up to 16, more savings are seen. Some simple analysis shows that by far the most common lengths are under this size.
