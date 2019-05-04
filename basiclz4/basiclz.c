@@ -31,16 +31,15 @@ static inline void init_links_table(void) {
 }
 
 static inline int build_key(uint8_t *src) {
-    uint32_t acc = *(uint32_t*)src;
-    return ( acc * 123456791 ) >> 16;
+    return ( *(uint32_t*)src * 123456791 ) >> 16;
 }
 
 static inline void update_links_table(struct buffer *src, uint32_t ptr) {
     while(update_ptr < (ptr - 4)) {
         int key = build_key(&src->data[update_ptr]);
-        uint32_t offset = heads[key];
-        if(offset != UNSET) {
-            links[update_ptr] = offset;
+        uint32_t position = heads[key];
+        if(position != UNSET) {
+            links[update_ptr] = position;
         }
         heads[key] = update_ptr;
         update_ptr += 1;
