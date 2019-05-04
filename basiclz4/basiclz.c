@@ -16,6 +16,7 @@
 struct match {
     uint16_t offset;
     uint16_t len;
+    uint8_t match:1;
 };
 
 // track where we've updated the hash table to
@@ -88,6 +89,7 @@ static inline uint16_t find_match_length(uint8_t *left, uint8_t* right, uint32_t
 
 static inline void find_match(struct match *m, struct buffer *src, uint32_t ptr) {
 
+    m->match = 0;
     m->offset = 0;
     m->len = 0;
 
@@ -104,10 +106,13 @@ static inline void find_match(struct match *m, struct buffer *src, uint32_t ptr)
 
         if (len > MIN_MATCH_LEN) {
             if (len > m->len) {
+                m->match = 1;
                 m->len = len;
                 m->offset = ptr - position;
 
-                if (len == max_len) break;
+                if (len == max_len) {
+                    break;
+                }
             }
         }
 
@@ -132,14 +137,17 @@ uint32_t compress(struct buffer *src, struct buffer *dest) {
 #ifdef LAZY_PARSE
     struct match next;
 
-    next.len = 0xffff;
+    next.match = 0;
+    next.len = 0;
+    next.offset = 0;
 #endif
 
     while(ptr < (src->size - 7)) {
 #ifdef LAZY_PARSE
-        if (next.len == 0xffff) {
+        if (next.match == 0) {
             find_match(&here, src, ptr);
         } else {
+            here.match = 1;
             here.len = next.len;
             here.offset = next.offset;
         }
@@ -147,7 +155,7 @@ uint32_t compress(struct buffer *src, struct buffer *dest) {
         find_match(&here, src, ptr);
 #endif
 
-        if (here.len > MIN_MATCH_LEN) {
+        if (here.match) {
 #ifdef LAZY_PARSE
             uint8_t lit_bias = (head != ptr) ? 0 : 1;
 
@@ -157,7 +165,7 @@ uint32_t compress(struct buffer *src, struct buffer *dest) {
 
             if (
                 // is it a match?
-                (next.len <= MIN_MATCH_LEN) ||
+                !next.match ||
                 // will it result in a better yield?
                 ((next.len - lit_bias) <= here.len)
             ) {
@@ -168,7 +176,7 @@ uint32_t compress(struct buffer *src, struct buffer *dest) {
                 emit_match(here.offset, here.len, dest);
                 ptr += here.len;
                 head = ptr;
-                next.len = 0xffff;
+                next.match = 0;
             }
 #else
             if(ptr != head) {
