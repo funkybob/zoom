@@ -3,7 +3,6 @@
 
 #include <stdio.h> // printf
 
-#include "comp.h"
 #include "basiclz.h"
 
 #define MAX_LIT_RUN 0x80    // implied 1
@@ -194,7 +193,7 @@ uint32_t compress(struct buffer *src, struct buffer *dest) {
     return dest->size;
 }
 
-uint32_t decompress(struct buffer *src, struct buffer *dest, uint32_t output_size) {
+uint32_t decompress(struct buffer *src, struct buffer *dest) {
 
     dest->size = 0;
 
@@ -227,8 +226,6 @@ uint32_t decompress(struct buffer *src, struct buffer *dest, uint32_t output_siz
             }
         }
     }
-
-    assert(dest->size == output_size);
 
     return dest->size;
 }

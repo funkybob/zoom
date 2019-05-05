@@ -1,10 +1,10 @@
+#include <assert.h>
 #include <stdlib.h> // malloc
 #include <stdio.h>  // FILE
 #include <unistd.h> // getopt
 
 #include <errno.h>
 
-#include "comp.h"
 #include "basiclz.h"
 
 int main(int argc, char **argv) {
@@ -28,7 +28,6 @@ int main(int argc, char **argv) {
   } else {
     fin = stdin;
   }
-
 
   struct buffer *src = malloc(sizeof(struct buffer));
   src->data = malloc(MAX_FRAME_SIZE);
@@ -63,9 +62,10 @@ int main(int argc, char **argv) {
       fread(&src->size, 4, 1, fin);
       fread(src->data, 1, src->size, fin);
 
-      size_t dsize = decompress(src, dest, size);
+      size_t dsize = decompress(src, dest);
 
       fwrite(dest->data, 1, dsize, fout);
+      // assert(dest->size == dsize);
     }
   }
 

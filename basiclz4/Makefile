@@ -1,7 +1,7 @@
 ALL: comp
 
 comp: Makefile main.c basiclz.c basiclz.h
-	gcc -Wall -Wextra -Werror -pedantic -I../ -Ofast -march=native -o comp main.c basiclz.c
+	gcc -Wall -Wextra -Werror -pedantic -Ofast -march=native -o comp main.c basiclz.c
 
 clean:
 	rm -f comp enwik* *.log
