@@ -169,18 +169,14 @@ uint32_t compress(struct buffer *src, struct buffer *dest) {
                 ((next.len - lit_bias) <= here.len)
             ) {
                 ptr -= 1;
-                if(ptr != head) {
-                    emit_literal_run(&src->data[head], ptr - head, dest);
-                }
+                emit_literal_run(&src->data[head], ptr - head, dest);
                 emit_match(here.offset, here.len, dest);
                 ptr += here.len;
                 head = ptr;
                 next.match = 0;
             }
 #else
-            if(ptr != head) {
-                emit_literal_run(&src->data[head], ptr - head, dest);
-            }
+            emit_literal_run(&src->data[head], ptr - head, dest);
             emit_match(here.offset, here.len, dest);
             ptr += here.len;
             head = ptr;
@@ -223,7 +219,7 @@ uint32_t decompress(struct buffer *src, struct buffer *dest, uint32_t output_siz
             while(len--)
                 dest->data[dest->size++] = dest->data[position++];
         } else {
-            int len = c + 1;
+            unsigned int len = c + 1;
             LOG("L,%d,\n", len);
 
             while(len--) {
