@@ -49,13 +49,13 @@ static inline void update_links_table(struct buffer *src, uint32_t ptr) {
 static inline void emit_literal_run(uint8_t *src, uint32_t len, struct buffer *dest) {
     while(len > 0) {
         uint32_t size = (len > MAX_LIT_RUN) ? MAX_LIT_RUN : len;
-        len -= size;
         LOG("L,%d,\n", size);
         dest->data[dest->size++] = (size - 1);
 
-        while(size--) {
-            dest->data[dest->size++] = *src++;
-        }
+        memcpy(&dest->data[dest->size], src, size);
+        dest->size += size;
+        src += size;
+        len -= size;
     }
 }
 
@@ -221,9 +221,9 @@ uint32_t decompress(struct buffer *src, struct buffer *dest) {
             unsigned int len = c + 1;
             LOG("L,%d,\n", len);
 
-            while(len--) {
-                dest->data[dest->size++] = src->data[sptr++];
-            }
+            memcpy(&dest->data[dest->size], &src->data[sptr], len);
+            dest->size += len;
+            sptr += len;
         }
     }
 
