@@ -7,7 +7,7 @@
 #include "basiclz.h"
 
 #define MAX_LIT_RUN 0x80    // implied 1
-#define MIN_MATCH_LEN 3     // match encoding is L + 2O
+#define MIN_MATCH_LEN 4     // match encoding is L + 2O
 #define MAX_MATCH_LEN (0x7f + MIN_MATCH_LEN)
 #define MAX_OFFSET 0xffff
 
@@ -104,7 +104,7 @@ static inline void find_match(struct match *m, struct buffer *src, uint32_t ptr)
 
         uint16_t len = find_match_length(&src->data[position], &src->data[ptr], max_len);
 
-        if (len > MIN_MATCH_LEN) {
+        if (len >= MIN_MATCH_LEN) {
             if (len > m->len) {
                 m->match = 1;
                 m->len = len;
