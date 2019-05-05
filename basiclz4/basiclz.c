@@ -97,11 +97,13 @@ static inline void find_match(struct match *m, struct buffer *src, uint32_t ptr)
     int key = build_key(&src->data[ptr]);
     uint32_t position = heads[key];
 
+    uint32_t max_len = src->size - ptr;
+    if(max_len > MAX_MATCH_LEN) {
+        max_len = MAX_MATCH_LEN;
+    }
+
     while(position != UNSET) {
         if (ptr - position > MAX_OFFSET) break;
-
-        uint32_t max_len = src->size - position;
-        max_len = (max_len > MAX_MATCH_LEN) ? MAX_MATCH_LEN : max_len;
 
         uint16_t len = find_match_length(&src->data[position], &src->data[ptr], max_len);
 
