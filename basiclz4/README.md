@@ -37,15 +37,15 @@ enwik9 | 322,591,995 | ~3m27sec
 ```
 Greedy:
 File   | Compressed  | Time
-enwik8 |  46,592,419 | ~9.8s
-enwik9 | 412,564,110 | ~1m24sec
+enwik8 |  46,592,302 | ~9.6s
+enwik9 | 412,557,083 | ~1m24sec
 ```
 
 ```
 Lazy:
 File   | Compressed  | Time
-enwik8 |  45,877,500 | ~14.6sec
-enwik9 | 405,807,570 | ~2m11sec
+enwik8 |  45,858,175 | ~14.6sec
+enwik9 | 405,701,316 | ~2m11sec
 ```
 
 ```
@@ -83,3 +83,11 @@ From some analysis, it appears two big advantages in LZ4 are:
 2. more efficient encoding of short runs
 
    by allowing literal run and match length encoding to use only 4bits for runs up to 16, more savings are seen. Some simple analysis shows that by far the most common lengths are under this size.
+
+
+Ideas:
+
+- of course, a smarter parser.
+
+- in doing an "optimal" parse, we can also figure out stats about actual found match lengths
+  we can then use this to skew the MinMatchLen for that block, possibly further improving compression.
