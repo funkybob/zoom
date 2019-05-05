@@ -36,7 +36,7 @@ static inline int build_key(uint8_t *src) {
 }
 
 static inline void update_links_table(struct buffer *src, uint32_t ptr) {
-    while(update_ptr < (ptr - 4)) {
+    while((ptr - update_ptr) > 4) {
         int key = build_key(&src->data[update_ptr]);
         uint32_t position = heads[key];
         if(position != UNSET) {
@@ -124,15 +124,12 @@ static inline void find_match(struct match *m, struct buffer *src, uint32_t ptr)
 }
 
 uint32_t compress(struct buffer *src, struct buffer *dest) {
-    uint32_t ptr = 4;
-    uint32_t head = ptr;
+    uint32_t ptr = 0;
+    uint32_t head = 0;
 
     dest->size = 0;
 
     init_links_table();
-
-    emit_literal_run(src->data, 4, dest);
-    update_links_table(src, ptr);
 
     struct match here;
 
