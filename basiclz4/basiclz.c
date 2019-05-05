@@ -51,6 +51,7 @@ static inline void emit_literal_run(uint8_t *src, uint32_t len, struct buffer *d
     while(len > 0) {
         uint32_t size = (len > MAX_LIT_RUN) ? MAX_LIT_RUN : len;
         len -= size;
+        LOG("L,%d,\n", size);
         dest->data[dest->size++] = (size - 1);
 
         while(size--) {
@@ -61,6 +62,7 @@ static inline void emit_literal_run(uint8_t *src, uint32_t len, struct buffer *d
 
 // offset is the absolute distance back we need to look
 static inline void emit_match(uint16_t offset, int16_t len, struct buffer *dest) {
+    LOG("M,%d,%d\n", len, offset);
     len -= MIN_MATCH_LEN;
     dest->data[dest->size++] = 0x80 | len;
 
@@ -215,6 +217,7 @@ uint32_t decompress(struct buffer *src, struct buffer *dest, uint32_t output_siz
 
             uint16_t offset = *(uint16_t *)&src->data[sptr];
             sptr += 2;
+            LOG("M,%d,%d\n", len, offset);
 
             uint32_t position = dest->size - offset;
 
@@ -224,6 +227,8 @@ uint32_t decompress(struct buffer *src, struct buffer *dest, uint32_t output_siz
                 dest->data[dest->size++] = dest->data[position++];
         } else {
             int len = c + 1;
+            LOG("L,%d,\n", len);
+
             while(len--) {
                 dest->data[dest->size++] = src->data[sptr++];
             }
