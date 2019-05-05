@@ -145,6 +145,7 @@ uint32_t compress(struct buffer *src, struct buffer *dest) {
         if (next.match == 0) {
             find_match(&here, src, ptr);
         } else {
+            // we already found this match, copy it over
             here.match = 1;
             here.len = next.len;
             here.offset = next.offset;
@@ -155,16 +156,16 @@ uint32_t compress(struct buffer *src, struct buffer *dest) {
 
         if (here.match) {
 #ifdef LAZY_PARSE
-            uint8_t lit_bias = (head != ptr) ? 0 : 1;
+            uint8_t lit_bias = (head != ptr) ? 0 : 2;
 
             ptr += 1;
             update_links_table(src, ptr);
             find_match(&next, src, ptr);
 
             if (
-                // is it a match?
+                // if it's not a match
                 !next.match ||
-                // will it result in a better yield?
+                // or it won't result in a better yield
                 ((next.len - lit_bias) <= here.len)
             ) {
                 ptr -= 1;
