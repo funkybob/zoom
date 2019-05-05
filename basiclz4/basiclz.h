@@ -2,9 +2,10 @@
 
 #define LAZY_PARSE 1
 
+#define DEBUG 1
+
 #ifdef DEBUG
-#error DEBUGGERY!
-#define LOG(...)    { fprintf(__VA_ARGS__); fflush(stdout); }
+#define LOG(...)    { printf(__VA_ARGS__); fflush(stdout); }
 #else
 #define LOG(...)    /* __VA_ARGS__ */
 #endif
