@@ -81,7 +81,7 @@ static inline uint16_t find_match_length(uint8_t *left, uint8_t* right, uint32_t
     }
 
     if(c != 0) {
-        len += __builtin_ctzl(c) >> 3;   // LITTLE ENDIAN!
+        len += __builtin_ctzll(c) >> 3;   // LITTLE ENDIAN!
     }
 
     return (len > max_len) ? max_len : len;
