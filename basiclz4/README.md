@@ -30,8 +30,8 @@ enwik9 | 356,494,682 | ~8m3sec
 ```
 Reference: gzip -9k
 File   | Compressed  | Time
-enwik8 |  36,445,248 | ~29.3sec
-enwik9 | 322,591,995 | ~3m27sec
+enwik8 |  36,445,248 | ~17.3sec
+enwik9 | 322,591,995 | ~2m27sec
 ```
 
 ```
@@ -51,8 +51,8 @@ enwik9 | 405,701,316 | ~2m11sec
 ```
 Lazy 1-step:
 File   | Compressed  | Time
-enwik8 |  45,966,409 | ~14.1sec
-enwik9 | 406,685,070 | ~1m53sec
+enwik8 |  45,928,792 | ~16.1sec
+enwik9 | 406,685,070 | ~2m11sec
 ```
 
 Silesia corups
