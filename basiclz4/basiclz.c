@@ -6,8 +6,8 @@
 #include "basiclz.h"
 
 #define MAX_LIT_RUN 0x80    // implied 1
-#define MIN_MATCH_LEN 4     // match encoding is L + 2O
-#define MAX_MATCH_LEN (0x7f + MIN_MATCH_LEN)
+#define MIN_MATCH_LEN 4
+#define MAX_MATCH_LEN (0xff + 0x7f + MIN_MATCH_LEN)
 #define MAX_OFFSET 0xffff
 
 #define UNSET 0xffffffff
@@ -63,7 +63,13 @@ static inline void emit_literal_run(uint8_t *src, uint32_t len, struct buffer *d
 static inline void emit_match(uint16_t offset, int16_t len, struct buffer *dest) {
     LOG("M,%d,%d\n", len, offset);
     len -= MIN_MATCH_LEN;
-    dest->data[dest->size++] = 0x80 | len;
+    if(len < 0x7f) {
+        dest->data[dest->size++] = 0x80 | len;
+    } else {
+        dest->data[dest->size++] = 0xff;
+        len -= 0x7f;
+        dest->data[dest->size++] = len;
+    }
 
     *(uint16_t*)&dest->data[dest->size] = offset;
     dest->size += 2;
@@ -124,7 +130,7 @@ static inline void find_match(struct match *m, struct buffer *src, uint32_t ptr)
 
 }
 
-uint32_t compress(struct buffer *src, struct buffer *dest) {
+uint32_t greedy_compress(struct buffer *src, struct buffer *dest) {
     uint32_t ptr = 0;
     uint32_t head = 0;
 
@@ -134,16 +140,44 @@ uint32_t compress(struct buffer *src, struct buffer *dest) {
 
     struct match here;
 
-#ifdef LAZY_PARSE
+    while(ptr < (src->size - 7)) {
+        find_match(&here, src, ptr);
+
+        if (here.match) {
+            emit_literal_run(&src->data[head], ptr - head, dest);
+            emit_match(here.offset, here.len, dest);
+            ptr += here.len;
+            head = ptr;
+        } else {
+            ptr += 1;
+        }
+        update_links_table(src, ptr);
+    }
+
+    if(head < src->size) {
+        emit_literal_run(&src->data[head], src->size - head, dest);
+    }
+
+    return dest->size;
+}
+
+uint32_t lazy_compress(struct buffer *src, struct buffer *dest) {
+    uint32_t ptr = 0;
+    uint32_t head = 0;
+
+    dest->size = 0;
+
+    init_links_table();
+
+    struct match here;
+
     struct match next;
 
     next.match = 0;
     next.len = 0;
     next.offset = 0;
-#endif
 
     while(ptr < (src->size - 7)) {
-#ifdef LAZY_PARSE
         if (next.match == 0) {
             find_match(&here, src, ptr);
         } else {
@@ -152,12 +186,9 @@ uint32_t compress(struct buffer *src, struct buffer *dest) {
             here.len = next.len;
             here.offset = next.offset;
         }
-#else
-        find_match(&here, src, ptr);
-#endif
 
         if (here.match) {
-#ifdef LAZY_PARSE
+            // try to find a better match
             uint8_t lit_bias = (head != ptr) ? 0 : 2;
 
             ptr += 1;
@@ -177,12 +208,6 @@ uint32_t compress(struct buffer *src, struct buffer *dest) {
                 head = ptr;
                 next.match = 0;
             }
-#else
-            emit_literal_run(&src->data[head], ptr - head, dest);
-            emit_match(here.offset, here.len, dest);
-            ptr += here.len;
-            head = ptr;
-#endif
         } else {
             ptr += 1;
         }
@@ -208,6 +233,9 @@ uint32_t decompress(struct buffer *src, struct buffer *dest) {
 
         if(c & 0x80) { // match
             unsigned int len = c & 0x7f;
+            if(len == 0x7f) {
+                len += src->data[sptr++];
+            }
             len += MIN_MATCH_LEN;
 
             uint16_t offset = *(uint16_t *)&src->data[sptr];

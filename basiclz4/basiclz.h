@@ -18,5 +18,6 @@ struct buffer {
 	uint8_t *data;
 };
 
-uint32_t compress(struct buffer *src, struct buffer *dest);
+uint32_t lazy_compress(struct buffer *src, struct buffer *dest);
+uint32_t greedy_compress(struct buffer *src, struct buffer *dest);
 uint32_t decompress(struct buffer *src, struct buffer *dest);

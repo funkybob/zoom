@@ -10,15 +10,20 @@
 int main(int argc, char **argv) {
   int opt;
   int mode = 'c';  // Compression
+  int lazy = 0;
   FILE *fin, *fout = stdout;
+  uint32_t (*compress)(struct buffer *src, struct buffer *dest);
 
-  while( (opt = getopt(argc, argv, "do")) != -1) {
+  while( (opt = getopt(argc, argv, "dol")) != -1) {
     switch(opt) {
     case 'd':
       mode = 'd';
       break;
     case 'o':
       fout = fopen(argv[optind++], "wb");
+      break;
+    case 'l':
+      lazy = 1;
       break;
     }
   }
@@ -38,6 +43,7 @@ int main(int argc, char **argv) {
   dest->size = 0;
 
   if (mode == 'c') {
+    compress = (lazy == 1) ? lazy_compress : greedy_compress;
 
     while(1) {
       src->size = fread(src->data, 1, MAX_FRAME_SIZE, fin);
