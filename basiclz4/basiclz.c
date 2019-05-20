@@ -35,7 +35,7 @@ static inline int build_key(uint8_t *src) {
 }
 
 static inline void update_links_table(struct buffer *src, uint32_t ptr) {
-    while((ptr - update_ptr) > 4) {
+    while(update_ptr < ptr) {
         int key = build_key(&src->data[update_ptr]);
         uint32_t position = heads[key];
         if(position != UNSET) {
@@ -131,8 +131,8 @@ static inline void find_match(struct match *m, struct buffer *src, uint32_t ptr)
 }
 
 uint32_t greedy_compress(struct buffer *src, struct buffer *dest) {
-    uint32_t ptr = 0;
-    uint32_t head = 0;
+    uint32_t ptr = 0;  // where we're currently looking for a match
+    uint32_t head = 0; // the first unencoded byte
 
     dest->size = 0;
 
@@ -169,9 +169,7 @@ uint32_t lazy_compress(struct buffer *src, struct buffer *dest) {
 
     init_links_table();
 
-    struct match here;
-
-    struct match next;
+    struct match here, next;
 
     next.match = 0;
     next.len = 0;
