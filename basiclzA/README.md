@@ -29,17 +29,17 @@ enwik9 | 322,591,995 | ~3m27sec
 HASH_DEPTH = 32:
 
 File   | Compressed  | Time
-enwik8 |  41,881,611 | ~29sec
-enwik9 | 365,990,954 | ~4m7sec
+enwik8 |  41,881,611 | ~22sec
+enwik9 | 365,990,954 | ~2m54sec
 
 HASH_DEPTH = 64:
 
 File   | Compressed  | Time
-enwik8 |  40,720,380 | ~41.9sec
-enwik9 | 355,971,487 | ~6m49sec
+enwik8 |  40,720,380 | ~36.5sec
+enwik9 | 355,971,487 | ~5m28sec
 
 HASH_DEPTH = 128
 
 File   | Compressed  | Time
-enwik8 |  39,810,526 | ~1m20sec
-enwik9 | ??? | ~?m??sec
+enwik8 |  39,810,526 | ~57.4sec
+enwik9 | 348,270,975 | ~8m53sec

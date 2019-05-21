@@ -12,7 +12,7 @@
 #define HASH_SIZE (1 << HASH_BITS)
 #define HASH_MASK (HASH_SIZE - 1)
 
-#define HASH_DEPTH 128
+#define HASH_DEPTH 32
 
 #define UNSET 0xffffffff
 
@@ -24,7 +24,7 @@ uint32_t update_ptr;
 struct match {
     uint32_t offset;
     uint16_t len;
-    uint8_t cost;
+    uint16_t gain;
 };
 
 static inline void init_hash_table() {
@@ -119,11 +119,9 @@ static inline size_t find_match_length(uint8_t *buffer, size_t left, size_t righ
 static inline void find_match(struct match *m, struct buffer *src, size_t ptr) {
     uint32_t key = hash(&src->data[ptr]);
 
-    uint16_t best_saving = 0;
-
     m->offset = 0;
     m->len = 0;
-    m->cost = 0;
+    m->gain = 0;
 
     for (int idx = 0; idx < HASH_DEPTH; idx++) {
         uint32_t position = table[key][idx];
@@ -132,13 +130,12 @@ static inline void find_match(struct match *m, struct buffer *src, size_t ptr) {
         uint16_t len = find_match_length(src->data, position, ptr, src->size - position);
 
         if (len >= MIN_MATCH_LEN) {
-            uint8_t cost = encoding_size(len, ptr - position);
+            uint16_t gain = len - encoding_size(len, ptr - position);
 
-            if ((len - cost) > best_saving) {
-                best_saving = len - cost;
+            if (gain > m->gain) {
                 m->len = len;
                 m->offset = ptr - position;
-                m->cost = cost;
+                m->gain = gain;
             }
         }
     }
@@ -154,18 +151,18 @@ uint32_t compress(struct buffer *src, struct buffer *dest) {
 
     struct match here, next;
 
-    next.len = 0xffff;
+    next.gain = 0;
 
     while(ptr < (src->size - 7)) {
-        if (next.len == 0xffff) {
+        if (next.gain == 0) {
             find_match(&here, src, ptr);
         } else {
             here.len = next.len;
             here.offset = next.offset;
-            here.cost = next.cost;
+            here.gain = next.gain;
         }
 
-        if (here.len > here.cost) {
+        if (here.gain) {
 
             // will emitting a literal now incurr a literal block cost?
             uint8_t lit_bias = (head == ptr) ? 1 : 0;
@@ -176,16 +173,16 @@ uint32_t compress(struct buffer *src, struct buffer *dest) {
 
             if (
                 // is it a match?
-                (next.len <= next.cost) ||
+                !next.gain ||
                 // will it result in a better yield?
-                ((next.len - (next.cost + lit_bias)) <= (here.len - here.cost))
+                (next.gain - lit_bias) <= here.gain
             ) {
                 ptr -= 1;
                 emit_literal_run(&src->data[head], ptr - head, dest);
                 emit_match(here.offset, here.len, dest);
                 ptr += here.len;
                 head = ptr;
-                next.len = 0xffff;
+                next.gain = 0;
             }
         } else {
             ptr += 1;
