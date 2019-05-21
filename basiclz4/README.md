@@ -37,15 +37,15 @@ enwik9 | 322,591,995 | ~2m27sec
 ```
 Greedy:
 File   | Compressed  | Time
-enwik8 |  46,592,302 | ~9.6s
-enwik9 | 412,557,083 | ~1m24sec
+enwik8 |  46,582,098 | ~9.5s
+enwik9 | 412,241,576 | ~1m14sec
 ```
 
 ```
 Lazy:
 File   | Compressed  | Time
-enwik8 |  45,858,175 | ~14.6sec
-enwik9 | 405,701,316 | ~2m11sec
+enwik8 |  45,847,442 | ~14.0sec
+enwik9 | 405,352,580 | ~1m55sec
 ```
 
 ```

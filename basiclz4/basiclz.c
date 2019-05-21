@@ -186,7 +186,8 @@ uint32_t lazy_compress(struct buffer *src, struct buffer *dest) {
         }
 
         if (here.match) {
-            // try to find a better match
+            // will skipping this match start a new literal run?
+            // TODO: why does doubling the bias get a better result?
             uint8_t lit_bias = (head != ptr) ? 0 : 2;
 
             ptr += 1;
