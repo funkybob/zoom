@@ -19,17 +19,16 @@ int main(int argc, char **argv) {
       mode = 'd';
       break;
     case 'o':
-      fout = fopen(argv[optind++], "w");
+      fout = fopen(argv[optind++], "wb");
       break;
     }
   }
 
   if (optind < argc) {
-    fin = fopen(argv[optind++], "r");
+    fin = fopen(argv[optind++], "rb");
   } else {
     fin = stdin;
   }
-
 
   struct buffer *src = malloc(sizeof(struct buffer));
   src->data = malloc(MAX_FRAME_SIZE);
@@ -39,30 +38,21 @@ int main(int argc, char **argv) {
   dest->data = malloc(MAX_FRAME_SIZE);
   dest->size = 0;
 
-  size_t size_read = 0, size_write = 0;
-
   if (mode == 'c') {
 
     while(1) {
       src->size = fread(src->data, 1, MAX_FRAME_SIZE, fin);
       if (src->size == 0) break;
 
-      size_read += src->size;
-      printf("[%ld -> %ld]\r", size_read, size_write);
-      fflush(0);
-
       // original size
       fwrite(&src->size, 4, 1, fout);
 
       size_t dsize = compress(src, dest);
 
-      size_write += dsize;
-
       // compressed size
       fwrite(&dsize, 4, 1, fout);
       fwrite(dest->data, 1, dsize, fout);
     }
-    printf("[%ld -> %ld]\n", size_read, size_write);
 
   } else {
 
