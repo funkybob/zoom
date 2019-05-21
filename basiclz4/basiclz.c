@@ -1,7 +1,4 @@
-#include <assert.h>
 #include <string.h>
-
-#include <stdio.h> // printf
 
 #include "basiclz.h"
 
@@ -30,13 +27,13 @@ static inline void init_links_table(void) {
     update_ptr = 0;
 }
 
-static inline int build_key(uint8_t *src) {
+static inline uint16_t hash(uint8_t *src) {
     return ( *(uint32_t*)src * 123456791 ) >> 16;
 }
 
 static inline void update_links_table(struct buffer *src, uint32_t ptr) {
     while(update_ptr < ptr) {
-        int key = build_key(&src->data[update_ptr]);
+        uint16_t key = hash(&src->data[update_ptr]);
         uint32_t position = heads[key];
         if(position != UNSET) {
             links[update_ptr] = position;
@@ -52,10 +49,10 @@ static inline void emit_literal_run(uint8_t *src, uint32_t len, struct buffer *d
         LOG("L,%d,\n", size);
         dest->data[dest->size++] = (size - 1);
 
-        memcpy(&dest->data[dest->size], src, size);
-        dest->size += size;
-        src += size;
         len -= size;
+        while(size--) {
+            dest->data[dest->size++] = *src++;
+        }
     }
 }
 
@@ -100,7 +97,7 @@ static inline void find_match(struct match *m, struct buffer *src, uint32_t ptr)
     m->offset = 0;
     m->len = 0;
 
-    int key = build_key(&src->data[ptr]);
+    uint16_t key = hash(&src->data[ptr]);
     uint32_t position = heads[key];
 
     uint32_t max_len = src->size - ptr;
@@ -243,17 +240,15 @@ uint32_t decompress(struct buffer *src, struct buffer *dest) {
 
             uint32_t position = dest->size - offset;
 
-            assert(position < dest->size);
-
             while(len--)
                 dest->data[dest->size++] = dest->data[position++];
+
         } else {
             unsigned int len = c + 1;
             LOG("L,%d,\n", len);
 
-            memcpy(&dest->data[dest->size], &src->data[sptr], len);
-            dest->size += len;
-            sptr += len;
+            while(len--)
+                dest->data[dest->size++] = src->data[sptr++];
         }
     }
 
